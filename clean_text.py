@@ -40,9 +40,12 @@ REPLACE_PATTERNS = {
         '=': ' ',
         ' \'': ' ',
         '\' ': ' ',
+        ' ‘': ' ',
+        '’ ': ' ',
         '--': ' ',
         '---': ' ',
         '___': ' ',
+        '──': ' ',
         '—': ' ',
         '**': ' ',
         'no-sir-ee': 'no sir ee',
@@ -55,13 +58,35 @@ EXCLUDE_PATTERNS = [
     "ms.",
     "dr."
 ]
-def clean_text(text):
+REMOVE_PUNC_PATTENRS = {
+    ',': ' ',
+    '.': ' ',
+    '?': ' ',
+    ':': ' ',
+    ';': ' ',
+    '!': ' ',
+}
+def clean_text(text, custom_replace_patterns: dict=None):
     text = ' ' + text + ' ' #Trick to remove '\'' at the begin and the end of sentence
     for exclude_pattern in EXCLUDE_PATTERNS:
         #TODO
         pass
     
     for k, v in REPLACE_PATTERNS.items():
+        text = text.replace(k, v)
+    if custom_replace_patterns is not None:
+        for k, v in custom_replace_patterns.items():
+            text = text.replace(k, v)
+    while True:
+        tmp = text.replace('  ', ' ')
+        if tmp == text:
+            break
+        else:
+            text = tmp
+    return text.strip()
+
+def remove_punc(text):
+    for k, v in REMOVE_PUNC_PATTENRS.items():
         text = text.replace(k, v)
     while True:
         tmp = text.replace('  ', ' ')
@@ -70,6 +95,7 @@ def clean_text(text):
         else:
             text = tmp
     return text.strip()
+
 if __name__=='__main__':
     input_text = sys.argv[1]
     output_text = sys.argv[2]

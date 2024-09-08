@@ -4,8 +4,28 @@ import glob
 import argparse
 import json
 from scipy.io.wavfile import read, write
+import unicodedata
 
-from clean_text import clean_text
+from clean_text import clean_text, remove_punc
+
+NORM_REPLACE_PATTERNS = {
+    'cv': 'xi vi',
+    'sơmi': 'sơ mi',
+    'haizzz': 'haizz',
+    'Haizzz': 'haizz',
+    'hotsearch': 'hot search',
+    'gl': 'gi eo',
+    'Sadako': 'sa đa cô',
+    'sadako': 'sa đa cô'
+}
+
+def simple_norm_text(text):
+    words = []
+    for word in text.split():
+        word = unicodedata.normalize('NFC', word)
+        if word:
+            words.append(word)
+    return ' '.join(words)
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser()
@@ -26,6 +46,7 @@ if __name__=='__main__':
     os.makedirs(outwav_dir, exist_ok=True)
     wavfiles = glob.glob(os.path.join(input_data_dir, '*.wav'))
     metadata = {'audios': {}}
+    text_remove_punc = []
     total_duration = 0
     total_samples = 0
     for wavfile in wavfiles:
@@ -39,19 +60,26 @@ if __name__=='__main__':
             print('Process: {}'.format(label_file))
             with open(label_file, encoding='utf-8') as f:
                 sentence_idx = 0
+                paragraph_id = 0
                 for line in f:
                     print('sen idx: {}, line: {}'.format(sentence_idx, line))
                     start, end, content = line.strip().split('\t')
+                    if content.strip() == '<end_chapter>':
+                        sentence_idx = 0
+                        paragraph_id += 1
+                        continue
+
                     start = float(start)
                     end = float(end)
                     start_pos = int(start*sampling_rate)
                     end_pos = int(end*sampling_rate)
                     
                     original_audio_id = filename
-                    paragraph_id = 0
+                    
                     raw_script=content
-                    script = clean_text(raw_script)
+                    script = simple_norm_text(clean_text(raw_script.lower(), custom_replace_patterns=NORM_REPLACE_PATTERNS))
                     global_sample_id = original_audio_id + '-' + str(paragraph_id) + '-' + str(sentence_idx)
+                    text_remove_punc.append([global_sample_id, remove_punc(script)])
                     # if args.split_audio:
                     audio_segment = data[start_pos:end_pos]
                     audio_path = os.path.join(outwav_dir, global_sample_id + '.wav')
@@ -90,4 +118,10 @@ if __name__=='__main__':
     with open(script_file, 'w', encoding='utf-8') as f:
         for sample_id, sample_data in metadata['audios'].items():
             line = sample_id + '|' + sample_data['script']
+            f.write(line + '\n')
+    #Write clean no punc script
+    script_file = os.path.join(output_data_dir, 'clean_text.remove_punc.txt')
+    with open(script_file, 'w', encoding='utf-8') as f:
+        for sample_id, text in text_remove_punc:
+            line = sample_id + '|' + text
             f.write(line + '\n')
